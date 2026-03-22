@@ -5,12 +5,13 @@ const jwt = require('jsonwebtoken')
 const User = require('../models/User')
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret'
+const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5000'
 
 // ─── GOOGLE ───────────────────────────────────────────
 passport.use(new GoogleStrategy({
   clientID: process.env.GOOGLE_CLIENT_ID,
   clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-  callbackURL: '/api/auth/google/callback',
+  callbackURL: `${BACKEND_URL}/api/auth/google/callback`,
 }, async (accessToken, refreshToken, profile, done) => {
   try {
     // Check if user already exists
@@ -37,7 +38,7 @@ passport.use(new GoogleStrategy({
 passport.use(new GitHubStrategy({
   clientID: process.env.GITHUB_CLIENT_ID,
   clientSecret: process.env.GITHUB_CLIENT_SECRET,
-  callbackURL: '/api/auth/github/callback',
+  callbackURL: `${BACKEND_URL}/api/auth/github/callback`,
   scope: ['user:email'],
 }, async (accessToken, refreshToken, profile, done) => {
   try {
