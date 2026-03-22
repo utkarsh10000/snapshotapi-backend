@@ -69,6 +69,14 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ success: false, error: 'Invalid email or password.' })
     }
 
+    // Check if user signed up with OAuth (no password)
+    if (!user.password) {
+      return res.status(401).json({
+        success: false,
+        error: 'This account uses Google or GitHub login. Please sign in with OAuth.'
+      })
+    }
+
     // Check password
     const isMatch = await bcrypt.compare(password, user.password)
     if (!isMatch) {
@@ -158,6 +166,11 @@ router.post('/change-password', async (req, res) => {
     const decoded = jwt.verify(token, JWT_SECRET)
     const user = await User.findById(decoded.userId)
     if (!user) return res.status(404).json({ success: false, error: 'User not found.' })
+
+    // Check if OAuth user
+    if (!user.password) {
+      return res.status(400).json({ success: false, error: 'OAuth accounts cannot change password.' })
+    }
 
     const { currentPassword, newPassword } = req.body
     const isMatch = await bcrypt.compare(currentPassword, user.password)
