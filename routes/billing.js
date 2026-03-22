@@ -1,15 +1,36 @@
 const express = require('express');
 const router = express.Router();
 const crypto = require('crypto');
+const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 
-// Middleware to verify JWT (reusing your existing one)
-const { verifyJWT } = require('../middleware/auth');
+// Self-contained JWT verification middleware
+const verifyJWT = async (req, res, next) => {
+  try {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1]; // Bearer <token>
+
+    if (!token) {
+      return res.status(401).json({ error: 'No token provided' });
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const user = await User.findById(decoded.id || decoded._id || decoded.userId);
+
+    if (!user) {
+      return res.status(401).json({ error: 'User not found' });
+    }
+
+    req.user = user;
+    next();
+  } catch (err) {
+    return res.status(401).json({ error: 'Invalid token' });
+  }
+};
 
 // POST /api/billing/checkout
-// Creates a Paddle checkout URL for the logged-in user
 router.post('/checkout', verifyJWT, async (req, res) => {
-  const { plan } = req.body; // 'starter' or 'pro'
+  const { plan } = req.body;
 
   if (!['starter', 'pro'].includes(plan)) {
     return res.status(400).json({ error: 'Invalid plan' });
@@ -47,8 +68,6 @@ router.post('/checkout', verifyJWT, async (req, res) => {
     });
 
     const data = await response.json();
-
-    // Paddle returns the checkout URL inside the transaction
     const checkoutUrl = data?.data?.checkout?.url;
 
     if (!checkoutUrl) {
@@ -64,7 +83,6 @@ router.post('/checkout', verifyJWT, async (req, res) => {
 });
 
 // POST /api/billing/webhook
-// Paddle calls this when a subscription event happens
 router.post('/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
   const secret = process.env.PADDLE_WEBHOOK_SECRET;
   const signature = req.headers['paddle-signature'];
@@ -73,7 +91,6 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
     return res.status(401).json({ error: 'No signature' });
   }
 
-  // Verify webhook signature
   try {
     const [tsPart, h1Part] = signature.split(';');
     const ts = tsPart.split('=')[1];
